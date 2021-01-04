@@ -25,13 +25,21 @@
 #include <time.h>
 
 #ifndef STASSID
-#define STASSID "YOGAWIFI"
-#define STAPSK  "123456789"
+#define STASSID "2.4G-Vectra-WiFi-84C84C"
+#define STAPSK  "e63n6pb96ido2df7"
 #endif
 
 const char * ssid = STASSID; // your network SSID (name)
 const char * pass = STAPSK;  // your network password
 
+byte Relay1_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x01, 0xa2};
+byte Relay1_Off[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x00, 0xa1};
+byte Relay2_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x02, 0x01, 0xA3};
+byte Relay2_Off[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x02, 0x00, 0xA2};
+byte Relay3_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x03, 0x01, 0xA4};
+byte Relay3_Off[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x03, 0x00, 0xA3};
+byte Relay4_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x04, 0x01, 0xA5};
+byte Relay4_Off[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x04, 0x00, 0xA4};
 
 unsigned int localPort = 2390;      // local port to listen for UDP packets
 
@@ -52,7 +60,10 @@ time_t calculated_time;
 
 void setup() {
   Serial.begin(115200);
-  Serial.println();
+  delay(1000);
+  Serial.println("OK");
+  delay(2000);
+  Serial.println("WIFI CONNECTED WIFI GOT IP AT+CIPMUX=1 AT+CIPSERVER=1,8080 AT+CIPSTO=360");
 
   // We start by connecting to a WiFi network
   WiFi.mode(WIFI_STA);
@@ -60,9 +71,12 @@ void setup() {
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    //Serial.print(".");
   }
-  Serial.println("");
+  delay(30000);
+  Serial.println("0,CONNECTED");
+  delay(1000);
+
   
   udp.begin(localPort);
 }
@@ -82,7 +96,7 @@ void loop() {
   
     int cb = udp.parsePacket();
     if (!cb) {
-      Serial.println("$Error:1");
+      //Serial.println("$Error:1");
     } else {
     
       // We've received a packet, read the data from it
@@ -113,7 +127,7 @@ void loop() {
   
       calculated_time = rawtime;
       strftime(buf, sizeof(buf), "$%y-%m-%d,%a,%H-%M-%S", &ts); //TODO: remove for release
-      Serial.println(buf);//TODO: remove for release
+      //Serial.println(buf);//TODO: remove for release
       cnt = 0;
     }
   }
@@ -131,98 +145,105 @@ void controlBlinds(time_t calc_time){
   switch (ts.tm_mon){
     case 0:
     if (ts.tm_hour > 7 && ts.tm_hour < 16){
-      Serial.println("Blinds open");
+      Serial.write(Relay1_Off, sizeof(Relay1_Off));
+      Serial.write(Relay2_On, sizeof(Relay2_On));
       }
     else{
-      Serial.println("Blinds closed");
+      Serial.write(Relay4_On, sizeof(Relay4_On));
+      delay(20);
+      Serial.write(Relay3_On, sizeof(Relay3_On));
+      delay(20);
+      Serial.write(Relay2_On, sizeof(Relay2_On));
+      delay(20);
+      Serial.write(Relay1_On, sizeof(Relay1_On));
       }
     break;
     case 1:
       if (ts.tm_hour > 7 && ts.tm_hour < 17){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 2:
       if (ts.tm_hour > 7 && ts.tm_hour < 18){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 3:
       if (ts.tm_hour > 7 && ts.tm_hour < 19){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 4:
       if (ts.tm_hour > 7 && ts.tm_hour < 20){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 5:
       if (ts.tm_hour > 7 && ts.tm_hour < 21){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 6:
       if (ts.tm_hour > 7 && ts.tm_hour < 21){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 7:
       if (ts.tm_hour > 7 && ts.tm_hour < 20){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 8:
       if (ts.tm_hour > 7 && ts.tm_hour < 19){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 9:
       if (ts.tm_hour > 7 && ts.tm_hour < 18){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 10:
       if (ts.tm_hour > 7 && ts.tm_hour < 17){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     case 11:
     if (ts.tm_hour > 7 && ts.tm_hour < 16){
-      Serial.println("Blinds open");
+      //Serial.println("Blinds open");
       }
     else{
-      Serial.println("Blinds closed");
+      //Serial.println("Blinds closed");
       }
     break;
     default:
