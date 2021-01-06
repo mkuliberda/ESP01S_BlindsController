@@ -54,9 +54,13 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
+WiFiServer server (80);
 
-int cnt = 360;
+int cnt_ntp = 3600;
+int cnt_ctrl = 10;
 time_t calculated_time;
+bool mode_auto = true;
+int value = LOW;
 
 void setup() {
   Serial.begin(115200);
@@ -79,14 +83,18 @@ void setup() {
 
   
   udp.begin(localPort);
+  server.begin();
+  delay(50);
+  //Serial.println(WiFi.localIP());
 }
 
-void loop() {
+void loop() { 
+  
+  cnt_ntp++;
+  cnt_ctrl++;
+  calculated_time+=1;
 
-  cnt++;
-  calculated_time+=10;
-
-  if (cnt > 360){ 
+  if (cnt_ntp > 3600){
     //get a random server from the pool
     WiFi.hostByName(ntpServerName, timeServerIP);
   
@@ -126,16 +134,49 @@ void loop() {
       ts.tm_isdst = 1;
   
       calculated_time = rawtime;
-      strftime(buf, sizeof(buf), "$%y-%m-%d,%a,%H-%M-%S", &ts); //TODO: remove for release
+      //strftime(buf, sizeof(buf), "$%y-%m-%d,%a,%H-%M-%S", &ts); //TODO: remove for release
       //Serial.println(buf);//TODO: remove for release
-      cnt = 0;
+      cnt_ntp = 0;
     }
   }
 
-  controlBlinds(calculated_time);
-    // wait ten seconds before asking for the time again
-  delay(10000);
+  handleServerRequests();
+
+  if(cnt_ctrl > 10 && mode_auto == true){
+    controlBlinds(calculated_time);
+    cnt_ctrl = 0;
+  }
+
+  delay(1000);
   
+}
+
+void Blind1Up(void){
+  Serial.write(Relay1_Off, sizeof(Relay1_Off));
+  delay(20);
+  Serial.write(Relay2_On, sizeof(Relay2_On));
+  delay(20);
+}
+
+void Blind1Down(void){
+  Serial.write(Relay2_Off, sizeof(Relay2_Off));
+  delay(20);
+  Serial.write(Relay1_On, sizeof(Relay1_On));
+  delay(20);
+}
+
+void Blind2Up(void){
+  Serial.write(Relay3_Off, sizeof(Relay3_Off));
+  delay(20);
+  Serial.write(Relay4_On, sizeof(Relay4_On));
+  delay(20);
+}
+
+void Blind2Down(void){
+  Serial.write(Relay4_Off, sizeof(Relay4_Off));
+  delay(20);
+  Serial.write(Relay3_On, sizeof(Relay3_On));
+  delay(20);
 }
 
 void controlBlinds(time_t calc_time){
@@ -145,110 +186,216 @@ void controlBlinds(time_t calc_time){
   switch (ts.tm_mon){
     case 0:
     if (ts.tm_hour > 7 && ts.tm_hour < 16){
-      Serial.write(Relay1_Off, sizeof(Relay1_Off));
-      Serial.write(Relay2_On, sizeof(Relay2_On));
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
       }
     else{
-      Serial.write(Relay4_On, sizeof(Relay4_On));
-      delay(20);
-      Serial.write(Relay3_On, sizeof(Relay3_On));
-      delay(20);
-      Serial.write(Relay2_On, sizeof(Relay2_On));
-      delay(20);
-      Serial.write(Relay1_On, sizeof(Relay1_On));
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 1:
-      if (ts.tm_hour > 7 && ts.tm_hour < 17){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 17){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 2:
-      if (ts.tm_hour > 7 && ts.tm_hour < 18){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 18){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 3:
-      if (ts.tm_hour > 7 && ts.tm_hour < 19){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 19){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 4:
-      if (ts.tm_hour > 7 && ts.tm_hour < 20){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 20){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 5:
-      if (ts.tm_hour > 7 && ts.tm_hour < 21){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 21){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 6:
-      if (ts.tm_hour > 7 && ts.tm_hour < 21){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 21){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 7:
-      if (ts.tm_hour > 7 && ts.tm_hour < 20){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 20){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 8:
-      if (ts.tm_hour > 7 && ts.tm_hour < 19){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 19){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 9:
-      if (ts.tm_hour > 7 && ts.tm_hour < 18){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 18){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     case 10:
-      if (ts.tm_hour > 7 && ts.tm_hour < 17){
-      //Serial.println("Blinds open");
-      }
+    if (ts.tm_hour > 7 && ts.tm_hour < 17){
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
       }
     break;
     case 11:
     if (ts.tm_hour > 7 && ts.tm_hour < 16){
-      //Serial.println("Blinds open");
-      }
+      Blind1Up();
+      Blind2Up();
+      value = HIGH;
+    }
     else{
-      //Serial.println("Blinds closed");
-      }
+      Blind1Down();
+      Blind2Down();
+      value = LOW;
+    }
     break;
     default:
     break;
     }
+}
+
+void handleServerRequests(void){
+
+  int timeout = 0;
+  
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if ( !client ) {
+    return;
+  }
+  
+  // Wait until the client sends some data or timeout
+  while ( !client.available() ){
+    if(timeout++ > 500){
+      return;
+      }
+    delay (10);
+  }
+    
+  // Read the first line of the request
+  String request = client.readStringUntil ('\r');
+  client.flush ();
+
+  value = LOW;
+  if (request.indexOf("/BLINDS=UP") != -1) {
+    mode_auto = false;
+    Blind1Up();
+    Blind2Up();
+    value = HIGH;
+  }
+  if (request.indexOf("/BLINDS=DOWN") != -1){
+    mode_auto = false;
+    Blind1Down();
+    Blind2Down();
+  }
+  if (request.indexOf("/BLINDS=AUTO") != -1){
+    mode_auto = true;
+  }
+    
+    // Return the response
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println(""); //  do not forget this one
+  client.println("<!DOCTYPE HTML>");
+  client.println("<html>");
+   
+  client.print("Blinds are now: ");
+  if(value == HIGH) {
+    client.print("up");  
+  } else {
+    client.print("down");
+  }
+  client.println("<br>");
+  client.print("Mode is now: ");
+  if(mode_auto == true) {
+    client.print("automatic");  
+  } else {
+    client.print("manual");
+  }
+  client.println("<br><br>");
+  client.println("Click <a href=\"/BLINDS=UP\">here</a> to lift blinds<br>");
+  client.println("Click <a href=\"/BLINDS=DOWN\">here</a> to lower blinds<br>");
+  client.println("Click <a href=\"/BLINDS=AUTO\">here</a> set mode to automatic based on time<br>");
+  client.println("</html>");
 
 }
 
