@@ -25,13 +25,14 @@
 #include <time.h>
 
 #ifndef STASSID
-#define STASSID "2.4G-Vectra-WiFi-84C84C"
+#define STASSID "Vectra-WiFi-84C84C"
 #define STAPSK  "e63n6pb96ido2df7"
 #endif
 
 const char * ssid = STASSID; // your network SSID (name)
 const char * pass = STAPSK;  // your network password
 
+#define CMD_DELAY 30
 byte Relay1_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x01, 0xa2};
 byte Relay1_Off[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x00, 0xa1};
 byte Relay2_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xA0, 0x02, 0x01, 0xA3};
@@ -153,30 +154,30 @@ void loop() {
 
 void Blind1Up(void){
   Serial.write(Relay1_Off, sizeof(Relay1_Off));
-  delay(20);
+  delay(CMD_DELAY);
   Serial.write(Relay2_On, sizeof(Relay2_On));
-  delay(20);
+  delay(CMD_DELAY);
 }
 
 void Blind1Down(void){
   Serial.write(Relay2_Off, sizeof(Relay2_Off));
-  delay(20);
+  delay(CMD_DELAY);
   Serial.write(Relay1_On, sizeof(Relay1_On));
-  delay(20);
+  delay(CMD_DELAY);
 }
 
 void Blind2Up(void){
   Serial.write(Relay3_Off, sizeof(Relay3_Off));
-  delay(20);
+  delay(CMD_DELAY);
   Serial.write(Relay4_On, sizeof(Relay4_On));
-  delay(20);
+  delay(CMD_DELAY);
 }
 
 void Blind2Down(void){
   Serial.write(Relay4_Off, sizeof(Relay4_Off));
-  delay(20);
+  delay(CMD_DELAY);
   Serial.write(Relay3_On, sizeof(Relay3_On));
-  delay(20);
+  delay(CMD_DELAY);
 }
 
 void controlBlinds(time_t calc_time){
@@ -269,7 +270,7 @@ void controlBlinds(time_t calc_time){
     }
     break;
     case 7:
-    if (ts.tm_hour > 7 && ts.tm_hour < 20){
+    if (ts.tm_hour > 7 && ts.tm_hour < 21){
       Blind1Up();
       Blind2Up();
       value = HIGH;
@@ -281,7 +282,7 @@ void controlBlinds(time_t calc_time){
     }
     break;
     case 8:
-    if (ts.tm_hour > 7 && ts.tm_hour < 19){
+    if (ts.tm_hour > 7 && ts.tm_hour < 20){
       Blind1Up();
       Blind2Up();
       value = HIGH;
@@ -293,7 +294,7 @@ void controlBlinds(time_t calc_time){
     }
     break;
     case 9:
-    if (ts.tm_hour > 7 && ts.tm_hour < 18){
+    if (ts.tm_hour > 7 && ts.tm_hour < 19){
       Blind1Up();
       Blind2Up();
       value = HIGH;
@@ -378,7 +379,7 @@ void handleServerRequests(void){
   client.println("<!DOCTYPE HTML>");
   client.println("<html>");
    
-  client.print("Blinds are now: ");
+  client.print("<h1>Blinds are now: ");
   if(value == HIGH) {
     client.print("up");  
   } else {
@@ -394,7 +395,7 @@ void handleServerRequests(void){
   client.println("<br><br>");
   client.println("Click <a href=\"/BLINDS=UP\">here</a> to lift blinds<br>");
   client.println("Click <a href=\"/BLINDS=DOWN\">here</a> to lower blinds<br>");
-  client.println("Click <a href=\"/BLINDS=AUTO\">here</a> set mode to automatic based on time<br>");
+  client.println("Click <a href=\"/BLINDS=AUTO\">here</a> set mode to automatic based on time</h1><br>");
   client.println("</html>");
 
 }
