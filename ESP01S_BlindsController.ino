@@ -62,6 +62,8 @@ int cnt_ctrl = 10;
 time_t calculated_time;
 bool mode_auto = true;
 int value = LOW;
+char time_buf[80] = "unknown";
+struct tm calc_ts;
 
 void setup() {
   Serial.begin(115200);
@@ -86,7 +88,7 @@ void setup() {
   udp.begin(localPort);
   server.begin();
   delay(50);
-  //Serial.println(WiFi.localIP());
+  Serial.println(WiFi.localIP());
 }
 
 void loop() { 
@@ -128,18 +130,20 @@ void loop() {
       time_t rawtime;
       rawtime = epoch + 3600;
       struct tm  ts;
-      char       buf[80];
+      //char       buf[80];
 
       // Format time, yy-mm-dd,ddd,hh-mm-ss 
       ts = *localtime(&rawtime);
       ts.tm_isdst = 1;
   
       calculated_time = rawtime;
-      //strftime(buf, sizeof(buf), "$%y-%m-%d,%a,%H-%M-%S", &ts); //TODO: remove for release
-      //Serial.println(buf);//TODO: remove for release
       cnt_ntp = 0;
     }
   }
+
+  calc_ts = *localtime(&calculated_time);
+  calc_ts.tm_isdst = 1;
+  strftime(time_buf, sizeof(time_buf), "%y-%m-%d,%a,%H-%M-%S", &calc_ts);
 
   handleServerRequests();
 
@@ -378,8 +382,11 @@ void handleServerRequests(void){
   client.println(""); //  do not forget this one
   client.println("<!DOCTYPE HTML>");
   client.println("<html>");
-   
-  client.print("<h1>Blinds are now: ");
+
+  client.print("<h1>Time is now: ");
+  client.print(time_buf);
+  client.print("<br>");
+  client.print("Blinds are now: ");
   if(value == HIGH) {
     client.print("up");  
   } else {
@@ -393,6 +400,7 @@ void handleServerRequests(void){
     client.print("manual");
   }
   client.println("<br><br>");
+  client.println("Click <a href=\''>here</a> to refresh page<br>");
   client.println("Click <a href=\"/BLINDS=UP\">here</a> to lift blinds<br>");
   client.println("Click <a href=\"/BLINDS=DOWN\">here</a> to lower blinds<br>");
   client.println("Click <a href=\"/BLINDS=AUTO\">here</a> set mode to automatic based on time</h1><br>");
