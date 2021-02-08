@@ -1,28 +1,9 @@
-/*
-
-  Udp NTP Client
-
-  Get the time from a Network Time Protocol (NTP) time server
-  Demonstrates use of UDP sendPacket and ReceivePacket
-  For more on NTP time servers and the messages needed to communicate with them,
-  see http://en.wikipedia.org/wiki/Network_Time_Protocol
-
-  created 4 Sep 2010
-  by Michael Margolis
-  modified 9 Apr 2012
-  by Tom Igoe
-  updated for the ESP8266 12 Apr 2015
-  by Ivan Grokhotkov
-  updated on 21 DEC 2020
-  by Mateusz Kuliberda
-
-  This code is in the public domain.
-
-*/
 
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <time.h>
+#include "Adafruit_MQTT.h"
+#include "Adafruit_MQTT_Client.h"
 
 #ifndef STASSID
 #define STASSID "Vectra-WiFi-84C84C"
@@ -31,6 +12,13 @@
 
 const char * ssid = STASSID; // your network SSID (name)
 const char * pass = STAPSK;  // your network password
+
+/************************* Adafruit.io Setup *********************************/
+
+#define AIO_SERVER      "io.adafruit.com"
+#define AIO_SERVERPORT  1883                   // use 8883 for SSL
+#define AIO_USERNAME    "mkuliberda"
+#define AIO_KEY         "aio_HEMZ39EaF9zkYXsgwuDX5tUjedPR"
 
 #define CMD_DELAY 30
 byte Relay1_On[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x30, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x01, 0xa2};
@@ -56,14 +44,26 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 WiFiServer server (80);
+// Create an ESP8266 WiFiClient class to connect to the MQTT server.
+WiFiClient client;
 
-int cnt_ntp = 3600;
+// Setup the MQTT client class by passing in the WiFi client and MQTT server and login details.
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_USERNAME, AIO_KEY);
+
+/****************************** Feeds ***************************************/
+
+// Notice MQTT paths for AIO follow the form: <username>/feeds/<feedname>
+Adafruit_MQTT_Subscribe blinds = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/blinds");
+
+int cnt_ntp = 1800;
 int cnt_ctrl = 10;
 time_t calculated_time;
 bool mode_auto = true;
 int value = LOW;
 char time_buf[80] = "unknown";
 struct tm calc_ts;
+
+void MQTT_connect();
 
 void setup() {
   Serial.begin(115200);
@@ -89,6 +89,9 @@ void setup() {
   server.begin();
   delay(50);
   Serial.println(WiFi.localIP());
+
+  // Setup MQTT subscription for blinds feed.
+  mqtt.subscribe(&blinds);
 }
 
 void loop() { 
@@ -97,7 +100,9 @@ void loop() {
   cnt_ctrl++;
   calculated_time+=1;
 
-  if (cnt_ntp > 3600){
+  MQTT_connect();
+
+  if (cnt_ntp > 1800){  //refresh ntp time every 30min
     //get a random server from the pool
     WiFi.hostByName(ntpServerName, timeServerIP);
   
@@ -141,6 +146,38 @@ void loop() {
     }
   }
 
+  Adafruit_MQTT_Subscribe *subscription;
+  while ((subscription = mqtt.readSubscription(300))) {
+    // Check if its the onoff button feed
+    if (subscription == &blinds) {
+      //Serial.print(F("blinds: "));
+      //Serial.println((char *)blinds.lastread);
+      
+      if (strcmp((char *)blinds.lastread, "up") == 0) {
+        mode_auto = false;
+        Blind1Up();
+        Blind2Up();
+        value = HIGH;
+      }
+      if (strcmp((char *)blinds.lastread, "down") == 0) {
+        mode_auto = false;
+        Blind1Down();
+        Blind2Down();
+        value = LOW;
+      }
+      if (strcmp((char *)blinds.lastread, "auto") == 0) {
+        mode_auto = true;
+      }
+    }
+  }
+
+  // ping the server to keep the mqtt connection alive
+  if (cnt_ctrl == 1){
+    if(! mqtt.ping()) {
+      mqtt.disconnect();
+      }
+  }
+
   calc_ts = *localtime(&calculated_time);
   calc_ts.tm_isdst = 1;
   strftime(time_buf, sizeof(time_buf), "%y-%m-%d,%a,%H-%M-%S", &calc_ts);
@@ -154,6 +191,33 @@ void loop() {
 
   delay(1000);
   
+}
+
+// Function to connect and reconnect as necessary to the MQTT server.
+// Should be called in the loop function and it will take care if connecting.
+void MQTT_connect() {
+  int8_t ret;
+
+  // Stop if already connected.
+  if (mqtt.connected()) {
+    return;
+  }
+
+  //Serial.print("Connecting to MQTT... ");
+
+  uint8_t retries = 3;
+  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+       //Serial.println(mqtt.connectErrorString(ret));
+       //Serial.println("Retrying MQTT connection in 0.5 seconds...");
+       mqtt.disconnect();
+       delay(500);  // wait 5 seconds
+       retries--;
+       //if (retries == 0) {
+         // basically die and wait for WDT to reset me
+         //while (1);
+       //}
+  }
+  //Serial.println("MQTT Connected!");
 }
 
 void Blind1Up(void){
@@ -343,13 +407,13 @@ void handleServerRequests(void){
   int timeout = 0;
   
   // Check if a client has connected
-  WiFiClient client = server.available();
-  if ( !client ) {
+  WiFiClient webpage_client = server.available();
+  if ( !webpage_client ) {
     return;
   }
   
-  // Wait until the client sends some data or timeout
-  while ( !client.available() ){
+  // Wait until the webpage_client sends some data or timeout
+  while ( !webpage_client.available() ){
     if(timeout++ > 500){
       return;
       }
@@ -357,10 +421,10 @@ void handleServerRequests(void){
   }
     
   // Read the first line of the request
-  String request = client.readStringUntil ('\r');
-  client.flush ();
+  String request = webpage_client.readStringUntil ('\r');
+  webpage_client.flush ();
 
-  value = LOW;
+  //value = LOW;
   if (request.indexOf("/BLINDS=UP") != -1) {
     mode_auto = false;
     Blind1Up();
@@ -377,34 +441,34 @@ void handleServerRequests(void){
   }
     
     // Return the response
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: text/html");
-  client.println(""); //  do not forget this one
-  client.println("<!DOCTYPE HTML>");
-  client.println("<html>");
+  webpage_client.println("HTTP/1.1 200 OK");
+  webpage_client.println("Content-Type: text/html");
+  webpage_client.println(""); //  do not forget this one
+  webpage_client.println("<!DOCTYPE HTML>");
+  webpage_client.println("<html>");
 
-  client.print("<h1>Time is now: ");
-  client.print(time_buf);
-  client.print("<br>");
-  client.print("Blinds are now: ");
+  webpage_client.print("<h1>Time is now: ");
+  webpage_client.print(time_buf);
+  webpage_client.print("<br>");
+  webpage_client.print("Blinds are now: ");
   if(value == HIGH) {
-    client.print("up");  
+    webpage_client.print("up");  
   } else {
-    client.print("down");
+    webpage_client.print("down");
   }
-  client.println("<br>");
-  client.print("Mode is now: ");
+  webpage_client.println("<br>");
+  webpage_client.print("Mode is now: ");
   if(mode_auto == true) {
-    client.print("automatic");  
+    webpage_client.print("automatic");  
   } else {
-    client.print("manual");
+    webpage_client.print("manual");
   }
-  client.println("<br><br>");
-  client.println("Click <a href=\''>here</a> to refresh page<br>");
-  client.println("Click <a href=\"/BLINDS=UP\">here</a> to lift blinds<br>");
-  client.println("Click <a href=\"/BLINDS=DOWN\">here</a> to lower blinds<br>");
-  client.println("Click <a href=\"/BLINDS=AUTO\">here</a> set mode to automatic based on time</h1><br>");
-  client.println("</html>");
+  webpage_client.println("<br><br>");
+  webpage_client.println("Click <a href=\'/'>here</a> to refresh page<br>");
+  webpage_client.println("Click <a href=\"/BLINDS=UP\">here</a> to lift blinds<br>");
+  webpage_client.println("Click <a href=\"/BLINDS=DOWN\">here</a> to lower blinds<br>");
+  webpage_client.println("Click <a href=\"/BLINDS=AUTO\">here</a> set mode to automatic based on time</h1><br>");
+  webpage_client.println("</html>");
 
 }
 
